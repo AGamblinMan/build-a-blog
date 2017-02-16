@@ -35,21 +35,34 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
+    def render_front(self, template="", title="", body="", error="", query=False):
+        if query:
+            posts = db.GqlQuery('SELECT * from Post '
+                                'ORDER BY created DESC')
+            self.render(template, posts=posts)
+        else:
+            self.render(template, title=title, body=body, error=error)
+
+
 class Post(db.Model):
     title = db.StringProperty(required = True)
     body = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
 
 class MainHandler(Handler):
-    def render_front(self, title="", body="", error=""):
-        posts = db.GqlQuery('SELECT * from Post '
-                            'ORDER BY created DESC')
+    def get(self):
+        self.redirect('/blog')
 
-        self.render("blog.html", title=title, body=body, error=error, posts=posts)
 
+class BlogHandler(Handler):
 
     def get(self):
-        self.render_front()
+        self.render_front("blog.html", query=True)
+
+class PostHandler(Handler):
+
+    def get(self):
+        self.render_front("new_post.html")
 
     def post(self):
         title = self.request.get("title")
@@ -59,13 +72,15 @@ class MainHandler(Handler):
             p = Post(title=title, body=body)
             p.put()
 
-            self.redirect('/')
+            self.redirect('/blog')
 
         else:
             error = "we need both a title and a body!"
             self.render_front(title=title, body=body, error = error)
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler)
+    ('/', MainHandler),
+    ('/blog', BlogHandler),
+    ('/blog/newpost', PostHandler)
 
 ], debug=True)
